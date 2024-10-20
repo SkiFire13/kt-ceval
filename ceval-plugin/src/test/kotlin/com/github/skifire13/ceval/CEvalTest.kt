@@ -24,8 +24,7 @@ class IrPluginTest {
   fun `example`() = assertNoEval(
     """
 fun main() {
-    // evalAdd(1, 2) must be evaluated as 3
-    println(evalAdd(1, 2))
+    assert(evalAdd(1, 2) == 3)
 }
 
 fun evalAdd(a: Int, b: Int): Int {
@@ -39,8 +38,8 @@ fun evalAdd(a: Int, b: Int): Int {
   fun `if`() = assertNoEval(
     """
 fun main() {
-    println(evalAddIf(1, 2))
-    println(evalAddIf(-1, 2))
+    assert(evalAddIf(1, 2) == 3)
+    assert(evalAddIf(-1, 2) == 2)
 }
 
 fun evalAddIf(a: Int, b: Int): Int {
@@ -56,8 +55,7 @@ fun evalAddIf(a: Int, b: Int): Int {
   fun `loop`() = assertNoEval(
     """
 fun main() {
-    println(evalAddLoop4(1, 2))
-    println(evalAddLoop4(1, 2))
+    assert(evalAddLoop4(1, 2) == 3)
 }
 
 fun evalAddLoop4(a: Int, b: Int): Int {
@@ -77,7 +75,7 @@ fun evalAddLoop4(a: Int, b: Int): Int {
   fun `string`() = assertNoEval(
     """
 fun main() {
-    println(evalConcat("foo", "bar"))
+    assert(evalConcat("foo", "bar") == "foobar")
 }
 
 fun evalConcat(a: String, b: String): String {
@@ -90,7 +88,7 @@ fun evalConcat(a: String, b: String): String {
   fun `println`() = assertHasEval(
     """
 fun main() {
-    println(evalAdd(1, 2))
+    assert(evalAdd(1, 2) == 3)
 }
 
 fun evalAdd(a: Int, b: Int): Int {
@@ -119,6 +117,7 @@ fun compile(@Language("kotlin") source: String): Boolean {
     inheritClassPath = true
   }.compile()
   assertEquals(KotlinCompilation.ExitCode.OK, result.exitCode)
+  result.classLoader.loadClass("MainKt").getMethod("main").invoke(null)
   return findEvalCalls.hasEvalCalls
 }
 
