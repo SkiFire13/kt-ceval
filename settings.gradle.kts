@@ -1,4 +1,4 @@
-rootProject.name = "kotlin-constant-eval"
+rootProject.name = "ceval"
 
-include(":kotlin-ir-plugin-gradle")
-include(":kotlin-ir-plugin")
+include(":ceval-plugin-gradle")
+include(":ceval-plugin")

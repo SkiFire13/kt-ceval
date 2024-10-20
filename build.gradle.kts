@@ -1,5 +1,5 @@
 buildscript {
-  extra["kotlin_plugin_id"] = "com.github.skifire13.ceval.kotlin-ir-plugin"
+  extra["kotlin_plugin_id"] = "com.github.skifire13.ceval-plugin"
 }
 
 plugins {
