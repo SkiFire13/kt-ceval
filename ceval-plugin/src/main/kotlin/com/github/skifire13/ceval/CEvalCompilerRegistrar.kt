@@ -10,7 +10,7 @@ import org.jetbrains.kotlin.config.CompilerConfiguration
 
 @AutoService(CompilerPluginRegistrar::class)
 class CEvalCompilerRegistrar: CompilerPluginRegistrar() {
-  override val supportsK2 = true
+  override val supportsK2 get() = false
 
   override fun ExtensionStorage.registerExtensions(configuration: CompilerConfiguration) {
     IrGenerationExtension.registerExtension(CEvalIrGenerationExtension())
