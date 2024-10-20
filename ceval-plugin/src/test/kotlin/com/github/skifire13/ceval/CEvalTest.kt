@@ -18,95 +18,128 @@ import org.jetbrains.kotlin.ir.visitors.transformChildrenVoid
 import org.junit.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 
 class IrPluginTest {
   @Test
   fun `example`() = assertNoEval(
     """
-fun main() {
-    assert(evalAdd(1, 2) == 3)
-}
+    fun main() {
+        assert(evalAdd(1, 2) == 3)
+    }
+    
+    fun evalAdd(a: Int, b: Int): Int {
+        val sum = a + b
+        return sum
+    }
+    """
+  )
 
-fun evalAdd(a: Int, b: Int): Int {
-    val sum = a + b
-    return sum
-}
-"""
+  @Test
+  fun `operations`() = assertNoEval(
+    """
+    fun main() {
+        assert(evalArithmetic() == 6)
+        assert(evalBitwise() == 19)
+        assert(evalComparisons(1, 2, 2))
+        assert(evalBooleans(true, false))
+    }
+
+    fun evalArithmetic() = (1 + 2) * (72 % 30) / 6
+    fun evalBitwise() = (6 and 3) or (1 xor 17) or (0.inv() - 1).inv()
+    fun evalComparisons(a: Int, b: Int, c: Int) = a != c && (b > a) && (b >= c) && !(a >= c) && (a < c) && (b <= c)
+    fun evalBooleans(t: Boolean, f: Boolean) = (t && f) || !f
+    """
   )
 
   @Test
   fun `if`() = assertNoEval(
     """
-fun main() {
-    assert(evalAddIf(1, 2) == 3)
-    assert(evalAddIf(-1, 2) == 2)
-}
-
-fun evalAddIf(a: Int, b: Int): Int {
-    if (a < 0) return b
-    val sum: Int
-    sum = a + b
-    return sum
-}
-"""
+    fun main() {
+        assert(evalAddIf(1, 2) == 3)
+        assert(evalAddIf(-1, 2) == 2)
+    }
+    
+    fun evalAddIf(a: Int, b: Int): Int {
+        val sum: Int
+        if (a < 0)
+            return b
+        else
+            sum = a + b
+        return sum
+    }
+    """
   )
 
   @Test
   fun `loop`() = assertNoEval(
     """
-fun main() {
-    assert(evalAddLoop4(1, 2) == 3)
-}
-
-fun evalAddLoop4(a: Int, b: Int): Int {
-    var c = a
-    var d: Int
-    d = b
-    while (c > 0) {
-        c -= 1
-        d++
+    fun main() {
+        assert(evalAddLoop(1, 2) == 3)
+        assert(evalLoopBreakContinue(5, 2) == 23)
     }
-    return d
-}
-"""
+    
+    fun evalAddLoop(a: Int, b: Int): Int {
+        var c = a
+        var d: Int
+        d = b
+        while (c > 0) {
+            c -= 1
+            d++
+        }
+        return d
+    }
+
+    fun evalLoopBreakContinue(a: Int, b: Int): Int {
+        var c = a
+        var d = b
+        while (c > 0) {
+            c -= 1
+            if (c == 4) continue
+            if (d == 3) break
+            d++
+        }
+        return 10 * c + d
+    }
+    """
   )
 
   @Test
   fun `string`() = assertNoEval(
     """
-fun main() {
-    assert(evalConcat("foo", "bar") == "foobar")
-}
-
-fun evalConcat(a: String, b: String): String {
-    return a + b
-}
-"""
+    fun main() {
+        assert(evalConcat("foo", "bar") == "foobar")
+    }
+    
+    fun evalConcat(a: String, b: String): String {
+        return a + b
+    }
+    """
   )
 
   @Test
   fun `println`() = assertHasEval(
     """
-fun main() {
-    assert(evalAdd(1, 2) == 3)
-}
-
-fun evalAdd(a: Int, b: Int): Int {
-    println("Adding")
-    return a + b
-}
-"""
+    fun main() {
+        assert(evalAdd(1, 2) == 3)
+    }
+    
+    fun evalAdd(a: Int, b: Int): Int {
+        println("Adding")
+        return a + b
+    }
+    """
   )
 }
 
 fun assertNoEval(@Language("kotlin") source: String) {
   val hasEvalCalls = compile(source)
-  assertFalse(hasEvalCalls)
+  assertFalse(hasEvalCalls, "Code should not have eval calls left")
 }
 
 fun assertHasEval(@Language("kotlin") source: String) {
   val hasEvalCalls = compile(source)
-  assert(hasEvalCalls)
+  assertTrue(hasEvalCalls, "Code should have eval calls left")
 }
 
 fun compile(@Language("kotlin") source: String): Boolean {
