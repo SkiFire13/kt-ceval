@@ -37,6 +37,7 @@ class BuiltInOperators(irBuiltIns: IrBuiltIns) {
   val minus = irBuiltIns.getBinaryOperator(Name.identifier("minus"), irBuiltIns.intType, irBuiltIns.intType)
   val mul = irBuiltIns.intTimesSymbol
   val div = irBuiltIns.getBinaryOperator(Name.identifier("div"), irBuiltIns.intType, irBuiltIns.intType)
+  val rem = irBuiltIns.getBinaryOperator(Name.identifier("rem"), irBuiltIns.intType, irBuiltIns.intType)
   val inc = irBuiltIns.getUnaryOperator(Name.identifier("inc"), irBuiltIns.intType)
   val dec = irBuiltIns.getUnaryOperator(Name.identifier("dec"), irBuiltIns.intType)
   val bitAnd = irBuiltIns.getBinaryOperator(Name.identifier("and"), irBuiltIns.intType, irBuiltIns.intType)
@@ -71,6 +72,10 @@ class EvalContext(private val ops: BuiltInOperators) {
       }
 
       is IrGetValue -> locals[expr.symbol] ?: return EvalRes.Invalid
+      is IrSetValue -> {
+        locals[expr.symbol] = evalExpr(expr.value).valueOr { return it }
+        EvalRes.Value.Unit
+      }
 
       is IrTypeOperatorCall ->
         if (expr.operator == IrTypeOperator.IMPLICIT_COERCION_TO_UNIT) evalExpr(expr.argument)
@@ -155,6 +160,7 @@ class EvalContext(private val ops: BuiltInOperators) {
       ops.minus -> evalIntBinaryInt { l, r -> l - r }
       ops.mul -> evalIntBinaryInt { l, r -> l * r }
       ops.div -> evalIntBinaryInt { l, r -> l / r }
+      ops.rem -> evalIntBinaryInt { l, r -> l % r }
       ops.inc -> evalIntUnary { it + 1 }
       ops.dec -> evalIntUnary { it - 1 }
       ops.bitAnd -> evalIntBinaryInt { l, r -> l and r }
@@ -221,7 +227,6 @@ class EvalContext(private val ops: BuiltInOperators) {
     for (stmt in statements) {
       when (stmt) {
         is IrVariable -> stmt.initializer?.let { init -> locals[stmt.symbol] = evalExpr(init).valueOr { return it } }
-        is IrSetValue -> locals[stmt.symbol] = evalExpr(stmt.value).valueOr { return it }
         is IrExpression -> evalExpr(stmt).valueOr { return it }
         else -> return EvalRes.Invalid
       }
