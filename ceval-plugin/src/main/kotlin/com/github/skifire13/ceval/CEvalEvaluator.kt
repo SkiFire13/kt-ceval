@@ -59,7 +59,7 @@ class BuiltInOperators(irBuiltIns: IrBuiltIns) {
   val stringExtPlus = irBuiltIns.extensionStringPlus
 }
 
-class StepsLimit(var limit: Int) {
+class StepsLimit(private var limit: Int) {
   fun checkAndStep(): Boolean {
     if (limit == 0) return false
     limit--
