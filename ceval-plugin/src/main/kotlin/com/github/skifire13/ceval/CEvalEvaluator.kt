@@ -69,7 +69,7 @@ class StepsLimit(var limit: Int) {
   }
 }
 
-class EvalContext(private val ops: BuiltInOperators, private val stepsLimit: StepsLimit) {
+class FunEvalContext(private val ops: BuiltInOperators, private val stepsLimit: StepsLimit) {
   private val locals: MutableMap<IrSymbol, Value> = mutableMapOf()
 
   fun evalExpr(expr: IrExpression): EvalRes {
@@ -118,7 +118,7 @@ class EvalContext(private val ops: BuiltInOperators, private val stepsLimit: Ste
     val body = call.symbol.owner.body ?: return evalBuiltinCall(call)
 
     // Create a new context for evaluating the new function
-    val newContext = EvalContext(ops, stepsLimit)
+    val newContext = FunEvalContext(ops, stepsLimit)
 
     // Evaluate the function parameters
     for ((paramDef, paramExpr) in call.getAllArgumentsWithIr()) {
