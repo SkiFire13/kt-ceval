@@ -77,6 +77,7 @@ class IrPluginTest {
     fun main() {
         assert(evalAddLoop(1, 2) == 3)
         assert(evalLoopBreakContinue(5, 2) == 23)
+        assert(evalNestedLoops(4, 2) == 10)
     }
     
     fun evalAddLoop(a: Int, b: Int): Int {
@@ -100,6 +101,21 @@ class IrPluginTest {
             d++
         }
         return 10 * c + d
+    }
+
+    fun evalNestedLoops(a: Int, b: Int): Int {
+        var c = a
+        var d = b
+        outer@while (true) {
+            while (c > 0) {
+                d++
+                if (d == 3) continue
+                c--
+                if (c == 2) break@outer
+            }
+            return 0
+        }
+        return c * d
     }
     """
   )
