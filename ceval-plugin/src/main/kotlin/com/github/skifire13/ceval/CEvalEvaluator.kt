@@ -61,9 +61,7 @@ class BuiltInOperators(irBuiltIns: IrBuiltIns) {
 
 class StepsLimit(var limit: Int) {
   fun checkAndStep(): Boolean {
-    if (limit == 0) {
-      return false
-    }
+    if (limit == 0) return false
     limit--
     return true
   }
