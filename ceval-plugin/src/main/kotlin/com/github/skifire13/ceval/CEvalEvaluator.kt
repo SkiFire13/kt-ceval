@@ -59,10 +59,22 @@ class BuiltInOperators(irBuiltIns: IrBuiltIns) {
   val stringExtPlus = irBuiltIns.extensionStringPlus
 }
 
-class EvalContext(private val ops: BuiltInOperators) {
+class StepsLimit(var limit: Int) {
+  fun checkAndStep(): Boolean {
+    if (limit == 0) {
+      return false
+    }
+    limit--
+    return true
+  }
+}
+
+class EvalContext(private val ops: BuiltInOperators, private val stepsLimit: StepsLimit) {
   private val locals: MutableMap<IrSymbol, Value> = mutableMapOf()
 
   fun evalExpr(expr: IrExpression): EvalRes {
+    if (!stepsLimit.checkAndStep()) return EvalRes.Invalid
+
     return when (expr) {
       is IrConst<*> -> when (expr.kind) {
         is IrConstKind.Int -> VInt(expr.value as? Int ?: return EvalRes.Invalid)
@@ -106,7 +118,7 @@ class EvalContext(private val ops: BuiltInOperators) {
     val body = call.symbol.owner.body ?: return evalBuiltinCall(call)
 
     // Create a new context for evaluating the new function
-    val newContext = EvalContext(ops)
+    val newContext = EvalContext(ops, stepsLimit)
 
     // Evaluate the function parameters
     for ((paramDef, paramExpr) in call.getAllArgumentsWithIr()) {

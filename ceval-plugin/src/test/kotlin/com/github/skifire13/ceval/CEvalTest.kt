@@ -146,6 +146,24 @@ class IrPluginTest {
     }
     """
   )
+
+  @Test
+  fun `infinite`() {
+    val result = KotlinCompilation().apply {
+      sources = listOf(SourceFile.kotlin("main.kt", """
+    fun main() {
+        evalInfinite()
+    }
+    
+    fun evalInfinite() {
+        while(true) {}
+    }
+    """))
+      compilerPluginRegistrars = listOf(CEvalCompilerRegistrar())
+      inheritClassPath = true
+    }.compile()
+    assertEquals(KotlinCompilation.ExitCode.OK, result.exitCode)
+  }
 }
 
 fun assertNoEval(@Language("kotlin") source: String) {
