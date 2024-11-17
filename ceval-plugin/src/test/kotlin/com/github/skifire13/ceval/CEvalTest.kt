@@ -10,14 +10,17 @@ import org.jetbrains.kotlin.backend.common.extensions.IrPluginContext
 import org.jetbrains.kotlin.compiler.plugin.CompilerPluginRegistrar
 import org.jetbrains.kotlin.compiler.plugin.ExperimentalCompilerApi
 import org.jetbrains.kotlin.config.CompilerConfiguration
+import org.jetbrains.kotlin.ir.IrElement
+import org.jetbrains.kotlin.ir.IrStatement
+import org.jetbrains.kotlin.ir.declarations.IrFunction
 import org.jetbrains.kotlin.ir.declarations.IrModuleFragment
 import org.jetbrains.kotlin.ir.expressions.IrCall
 import org.jetbrains.kotlin.ir.expressions.IrExpression
-import org.jetbrains.kotlin.ir.visitors.IrElementTransformerVoid
-import org.jetbrains.kotlin.ir.visitors.transformChildrenVoid
+import org.jetbrains.kotlin.ir.visitors.*
 import org.junit.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
 
 class IrPluginTest {
@@ -72,12 +75,10 @@ class IrPluginTest {
   )
 
   @Test
-  fun `loop`() = assertNoEval(
+  fun `loopSimple`() = assertNoEval(
     """
     fun main() {
         assert(evalAddLoop(1, 2) == 3)
-        assert(evalLoopBreakContinue(5, 2) == 23)
-        assert(evalNestedLoops(4, 2) == 10)
     }
     
     fun evalAddLoop(a: Int, b: Int): Int {
@@ -90,6 +91,15 @@ class IrPluginTest {
         }
         return d
     }
+    """
+  )
+
+  @Test
+  fun `loop break continue`() = assertNoEval(
+    """
+    fun main() {
+        assert(evalLoopBreakContinue(5, 2) == 23)
+    }
 
     fun evalLoopBreakContinue(a: Int, b: Int): Int {
         var c = a
@@ -101,6 +111,15 @@ class IrPluginTest {
             d++
         }
         return 10 * c + d
+    }
+    """
+  )
+
+  @Test
+  fun `loop nested`() = assertNoEval(
+    """
+    fun main() {
+        assert(evalNestedLoops(4, 2) == 10)
     }
 
     fun evalNestedLoops(a: Int, b: Int): Int {
@@ -148,6 +167,65 @@ class IrPluginTest {
   )
 
   @Test
+  fun `blockEvalToExpression`() = assertNoEval(
+    """
+    fun main() {
+        assert(evalOne(true) == "OK")
+        assert(evalOne(false) == "NOT OK")
+
+        assert(evalTwo(true) == "OK")
+        assert(evalTwo(false) == "NOT OK")
+    }
+
+    fun evalOne(flag: Boolean): String {
+        return if (flag) { "OK" } else { "NOT OK" }
+    }
+
+    fun evalTwo(flag: Boolean): String =
+        if (flag) { "OK" } else { "NOT OK" }
+    """
+  )
+
+  @Test
+  fun `defaultArgument`() = assertNoEval(
+    """
+    fun main() {
+        assert(evalOne() == "OK")
+        assert(evalOne(true) == "OK")
+        assert(evalOne(false) == "NOT OK")
+
+        assert(evalTwo() == "NOT OK")
+        assert(evalTwo(true) == "OK")
+        assert(evalTwo(false) == "NOT OK")
+    }
+
+    fun evalOne(flag: Boolean = true): String {
+        return if (flag) { "OK" } else { "NOT OK" }
+    }
+
+    fun evalTwo(flag: Boolean = false): String {
+        return if (flag) { "OK" } else { "NOT OK" }
+    }
+    """
+  )
+
+  @Test
+  fun `nestedCall`() = assertNoEval(
+    """
+    fun main() {
+        assert(evalFactorial(0) == 1)
+        assert(evalFactorial(1) == 1)
+        assert(evalFactorial(4) == 24)
+    }
+    
+    fun evalFactorial(n: Int): Int = when (n) {
+        0, 1 -> 1
+        else -> evalFactorial(n - 1) * n
+    }
+    """
+  )
+
+  @Test
   fun `infinite`() {
     val result = KotlinCompilation().apply {
       sources = listOf(SourceFile.kotlin("main.kt", """
@@ -168,15 +246,15 @@ class IrPluginTest {
 
 fun assertNoEval(@Language("kotlin") source: String) {
   val hasEvalCalls = compile(source)
-  assertFalse(hasEvalCalls, "Code should not have eval calls left")
+  assertEquals(hasEvalCalls, emptyList(), "Code should not have eval calls left")
 }
 
 fun assertHasEval(@Language("kotlin") source: String) {
   val hasEvalCalls = compile(source)
-  assertTrue(hasEvalCalls, "Code should have eval calls left")
+  assertNotEquals(hasEvalCalls, emptyList(), "Code should have eval calls left")
 }
 
-fun compile(@Language("kotlin") source: String): Boolean {
+fun compile(@Language("kotlin") source: String): List<String> {
   val findEvalCalls = FindEvalCallsRegistrar()
   val result = KotlinCompilation().apply {
     sources = listOf(SourceFile.kotlin("main.kt", source))
@@ -185,22 +263,38 @@ fun compile(@Language("kotlin") source: String): Boolean {
   }.compile()
   assertEquals(KotlinCompilation.ExitCode.OK, result.exitCode)
   result.classLoader.loadClass("MainKt").getMethod("main").invoke(null)
-  return findEvalCalls.hasEvalCalls
+  return findEvalCalls.evalCalls
 }
 
 class FindEvalCallsRegistrar : CompilerPluginRegistrar() {
-  var hasEvalCalls = false
+  var evalCalls = mutableListOf<String>()
   override val supportsK2 = true
+
+  val functionsVisitor = object : IrElementVisitorVoid {
+    override fun visitElement(element: IrElement) = element.acceptChildrenVoid(this)
+    override fun visitFunction(declaration: IrFunction) {
+      if (declaration.name.asString() == "main") {
+        declaration.acceptVoid(evalCallVisitor)
+      }
+      visitElement(declaration)
+    }
+  }
+
+  val evalCallVisitor = object : IrElementVisitorVoid {
+    override fun visitElement(element: IrElement) = element.acceptChildrenVoid(this)
+    override fun visitCall(expression: IrCall) {
+      val funcName = expression.symbol.owner.name.asString()
+      if (funcName.startsWith("eval")) {
+        evalCalls.add(funcName)
+      }
+      visitElement(expression)
+    }
+  }
 
   override fun ExtensionStorage.registerExtensions(configuration: CompilerConfiguration) {
     IrGenerationExtension.registerExtension(object : IrGenerationExtension {
       override fun generate(moduleFragment: IrModuleFragment, pluginContext: IrPluginContext) {
-        moduleFragment.transformChildrenVoid(object : IrElementTransformerVoid() {
-          override fun visitCall(expression: IrCall): IrExpression {
-            hasEvalCalls = hasEvalCalls || expression.symbol.owner.name.asString().startsWith("eval")
-            return super.visitCall(expression)
-          }
-        })
+        moduleFragment.acceptVoid(functionsVisitor)
       }
     })
   }

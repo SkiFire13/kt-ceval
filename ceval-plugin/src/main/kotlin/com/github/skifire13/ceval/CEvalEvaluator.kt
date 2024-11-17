@@ -217,10 +217,8 @@ class FunEvalContext(private val ops: BuiltInOperators, private val stepsLimit: 
         // Apply break and continue if they're for this loop
         bodyRes is EvalRes.Break && bodyRes.loop == loop -> break
         bodyRes is EvalRes.Continue && bodyRes.loop == loop -> {}
-        // Unit represents a successful loop iteration
-        bodyRes is EvalRes.Value.Unit -> {}
-        // Other values should not be present
-        bodyRes is Value -> return EvalRes.Invalid
+        // Ignore values
+        bodyRes is EvalRes.Value -> {}
         // Otherwise propagate
         else -> return bodyRes
       }
@@ -234,14 +232,19 @@ class FunEvalContext(private val ops: BuiltInOperators, private val stepsLimit: 
   }
 
   private fun evalStmts(statements: List<IrStatement>): EvalRes {
+    var res: EvalRes.Value = EvalRes.Value.Unit
+
     for (stmt in statements) {
-      when (stmt) {
-        is IrVariable -> stmt.initializer?.let { init -> locals[stmt.symbol] = evalExpr(init).valueOr { return it } }
+      res = when (stmt) {
+        is IrVariable -> {
+          stmt.initializer?.let { init -> locals[stmt.symbol] = evalExpr(init).valueOr { return it } }
+          EvalRes.Value.Unit
+        }
         is IrExpression -> evalExpr(stmt).valueOr { return it }
         else -> return EvalRes.Invalid
       }
     }
-    // List of statements always evaluate to Unit
-    return EvalRes.Value.Unit
+
+    return res
   }
 }
