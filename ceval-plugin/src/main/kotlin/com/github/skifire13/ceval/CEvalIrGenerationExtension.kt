@@ -20,12 +20,15 @@ class CEvalIrGenerationExtension : IrGenerationExtension {
     moduleFragment.transformChildrenVoid(object : IrElementTransformerVoid() {
       override fun visitCall(expression: IrCall): IrExpression {
         if (expression.symbol.owner.name.asString().startsWith("eval")) {
-          when (val value = FunEvalContext(builtInOperators, StepsLimit(100_000)).evalExpr(expression)) {
-            is EvalRes.Value.Int -> return value.i.toIrConst(intTy)
-            is EvalRes.Value.Boolean -> return value.b.toIrConst(booleanTy)
-            is EvalRes.Value.String -> return value.s.toIrConst(stringTy)
-            else -> {}
-          }
+          val visitor = FunEvalVisitor(builtInOperators, StepsLimit(100_00))
+          try {
+            when(val value = expression.accept(visitor, Unit)) {
+              is EvalRes.Value.Int -> return value.i.toIrConst(intTy)
+              is EvalRes.Value.Boolean -> return value.b.toIrConst(booleanTy)
+              is EvalRes.Value.String -> return value.s.toIrConst(stringTy)
+              else -> {}
+            }
+          } catch (e: EvalException) {}
         }
         return super.visitCall(expression)
       }
